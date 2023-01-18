@@ -20,15 +20,22 @@ data = [
     ('Durant', "Nets", 35, 8, datetime.datetime.strptime('2021-01-02', "%Y-%m-%d").date()),
     ('Curry', "Warriors", 38, 9, datetime.datetime.strptime('2021-01-01', "%Y-%m-%d").date()),
     ('Harden', "Nets", 19, 12, datetime.datetime.strptime('2021-01-03', "%Y-%m-%d").date())
-    ]
+]
 
 spark_df = spark.createDataFrame(data=data, schema=schema)
 
-dff = create_sum_feature(
-    spark_df,
-    create_window_frame_hour_interval(partition_key="team_name", order_key="date", interval=24),
-    sum_column="player_assists"
-)
 
-dff.printSchema()
-dff.show(truncate=False)
+def main():
+    _df = spark_df
+    intervals = [24, 48]
+    for interval in intervals:
+        _df = create_sum_feature(
+            _df,
+            create_window_frame_hour_interval("team_name", "date", interval),
+            "player_points"
+        )
+    return _df.show()
+
+
+if __name__ == "__main__":
+    main()
