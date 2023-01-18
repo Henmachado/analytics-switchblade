@@ -40,3 +40,22 @@ def create_sum_feature(
     return _df.withColumn(
         f"ft_total_sum_{sum_column}_per_{window[1]}", F.sum(F.col(sum_column)).over(window[0])
     )
+
+
+def create_feature(
+        df: DataFrame, window: Callable[[str], tuple[WindowSpec, str]], operator: str, column: str
+) -> DataFrame:
+    _df = df
+    if operator == "sum":
+        return _df.withColumn(
+            f"ft_total_sum_{column}_per_{window[1]}", F.sum(F.col(column)).over(window[0])
+        )
+    if operator == "count":
+        return _df.withColumn(
+            f"ft_total_sum_{column}_per_{window[1]}", F.sum(F.lit(1)).over(window[0])
+        )
+    if operator == "avg":
+        return _df.withColumn(
+            f"ft_total_sum_{column}_per_{window[1]}", F.avg(F.col(column)).over(window[0])
+        )
+
