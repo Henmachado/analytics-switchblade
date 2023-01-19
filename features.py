@@ -2,28 +2,38 @@ from pyspark.sql import DataFrame, WindowSpec
 from pyspark.sql import functions as F
 from pyspark.sql import Window
 
+from dataclasses import dataclass
 from typing import Callable
 
 
-def create_window_frame_ever(partition_key: str, order_key: str):
+@dataclass
+class WindFuncFeatureGenerator:
+    df: DataFrame
+    column_ref: str
+    partition_key: str
+    order_key: str
+    interval: int
+
+
+def create_window_frame_ever(params: WindFuncFeatureGenerator):
     window = (
         Window()
-        .partitionBy(partition_key)
-        .orderBy(order_key)
+        .partitionBy(params.partition_key)
+        .orderBy(params.order_key)
         .rowsBetween(Window.unboundedPreceding, Window.currentRow)
     )
-    return window, f"{partition_key}_ever"
+    return window, f"{params.partition_key}_ever"
 
 
-def create_window_frame_hour_interval(partition_key: str, order_key: str, interval: int):
+def create_window_frame_hour_interval(params: WindFuncFeatureGenerator):
     def to_hours(h): return h * 3600
     window = (
         Window()
-        .partitionBy(partition_key)
-        .orderBy(F.col(order_key).cast("timestamp").cast("long"))
-        .rangeBetween(-to_hours(interval), Window.currentRow)
+        .partitionBy(params.partition_key)
+        .orderBy(F.col(params.order_key).cast("timestamp").cast("long"))
+        .rangeBetween(-to_hours(params.interval), Window.currentRow)
     )
-    return window, f"{partition_key}_last_{interval}h"
+    return window, f"{params.partition_key}_last_{params.interval}h"
 
 
 def create_count_feature(
@@ -40,22 +50,3 @@ def create_sum_feature(
     return _df.withColumn(
         f"ft_total_sum_{sum_column}_per_{window[1]}", F.sum(F.col(sum_column)).over(window[0])
     )
-
-
-def create_feature(
-        df: DataFrame, window: Callable[[str], tuple[WindowSpec, str]], operator: str, column: str
-) -> DataFrame:
-    _df = df
-    if operator == "sum":
-        return _df.withColumn(
-            f"ft_total_sum_{column}_per_{window[1]}", F.sum(F.col(column)).over(window[0])
-        )
-    if operator == "count":
-        return _df.withColumn(
-            f"ft_total_sum_{column}_per_{window[1]}", F.sum(F.lit(1)).over(window[0])
-        )
-    if operator == "avg":
-        return _df.withColumn(
-            f"ft_total_sum_{column}_per_{window[1]}", F.avg(F.col(column)).over(window[0])
-        )
-
