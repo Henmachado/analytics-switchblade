@@ -1,52 +1,40 @@
-from pyspark.sql import DataFrame, WindowSpec
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql import Window
 
-from dataclasses import dataclass
-from typing import Callable
 
-
-@dataclass
-class WindFuncFeatureGenerator:
-    df: DataFrame
-    column_ref: str
-    partition_key: str
-    order_key: str
-    interval: int
-
-
-def create_window_frame_ever(params: WindFuncFeatureGenerator):
-    window = (
+def generate_window_frame_ever(partition_key: str, order_key: str) -> list:
+    return [(
         Window()
-        .partitionBy(params.partition_key)
-        .orderBy(params.order_key)
+        .partitionBy(partition_key)
+        .orderBy(order_key)
         .rowsBetween(Window.unboundedPreceding, Window.currentRow)
-    )
-    return window, f"{params.partition_key}_ever"
+    )]
 
 
-def create_window_frame_hour_interval(params: WindFuncFeatureGenerator):
+def generate_window_frame_interval(partition_key: str, order_key: str, interval_list: list) -> list:
     def to_hours(h): return h * 3600
-    window = (
-        Window()
-        .partitionBy(params.partition_key)
-        .orderBy(F.col(params.order_key).cast("timestamp").cast("long"))
-        .rangeBetween(-to_hours(params.interval), Window.currentRow)
-    )
-    return window, f"{params.partition_key}_last_{params.interval}h"
+    _interval_list = []
+    for interval in interval_list:
+        w = (
+            Window()
+            .partitionBy(partition_key)
+            .orderBy(F.col(order_key).cast("timestamp").cast("long"))
+            .rangeBetween(-to_hours(interval), Window.currentRow)
+        )
+        _interval_list.append(w)
+    return _interval_list
 
 
-def create_count_feature(
-        df: DataFrame, window: Callable[[str], tuple[WindowSpec, str]], count_column: str) -> DataFrame:
+def generate_count_feature(df: DataFrame, target_colum: str, wf_intervals: list) -> DataFrame:
     _df = df
-    return _df.withColumn(
-        f"ft_total_count_{count_column}_per_{window[1]}", F.sum(F.lit(1)).over(window[0])
-    )
+    for interval in wf_intervals:
+        _df = _df.withColumn(f"{interval}", F.count(target_colum).over(interval))
+    return _df
 
 
-def create_sum_feature(
-        df: DataFrame, window: Callable[[str], tuple[WindowSpec, str]], sum_column: str) -> DataFrame:
+def generate_sum_feature(df: DataFrame, target_colum: str, wf_intervals: list) -> DataFrame:
     _df = df
-    return _df.withColumn(
-        f"ft_total_sum_{sum_column}_per_{window[1]}", F.sum(F.col(sum_column)).over(window[0])
-    )
+    for interval in wf_intervals:
+        _df = _df.withColumn(f"{interval}", F.sum(target_colum).over(interval))
+    return _df

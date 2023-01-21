@@ -26,19 +26,14 @@ spark_df = spark.createDataFrame(data=data, schema=schema)
 
 
 def main():
-    wf = WindFuncFeatureGenerator(
-        df=spark_df,
-        column_ref="player_points",
-        partition_key="team_name",
-        order_key="date",
-        interval=24
+    _df = spark_df
+
+    _df = generate_sum_feature(
+        _df,
+        "player_points",
+        generate_window_frame_ever("team_name", "date")
     )
 
-    _df = create_sum_feature(
-        wf.df,
-        create_window_frame_hour_interval(wf),
-        wf.column_ref
-    )
     return _df.show()
 
 
