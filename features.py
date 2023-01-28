@@ -1,3 +1,6 @@
+from functools import reduce
+from itertools import product
+
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql import Window
@@ -23,18 +26,31 @@ def generate_window_spec_list(specs: list[tuple]) -> list:
 
 
 def generate_count_feature(df: DataFrame, target_colum: str, specs: list[tuple]) -> DataFrame:
-    _df = df
-    for spec in generate_window_spec_list(specs):
-        _df = _df.withColumn(
+    return reduce(
+        lambda _df, spec: _df.withColumn(
             f"count_{target_colum}_{spec[1]}", F.count(target_colum).over(spec[0])
-        )
-    return _df
+        ),
+        specs,  # iterable
+        df  # initial value of the iteration
+    )
 
 
 def generate_sum_feature(df: DataFrame, target_colum: str, specs: list[tuple]) -> DataFrame:
-    _df = df
-    for spec in generate_window_spec_list(specs):
-        _df = _df.withColumn(
+    return reduce(
+        lambda _df, spec: _df.withColumn(
             f"sum_{target_colum}_{spec[1]}", F.sum(target_colum).over(spec[0])
-        )
-    return _df
+        ),
+        specs,  # iterable
+        df  # initial value of the iteration
+    )
+
+
+def generate_features(spark_df: DataFrame, targets: dict) -> DataFrame:
+    features = list(targets.keys())
+    for feature in features:
+        x, y, z = targets.get(feature)
+        specs = list(product(x, y, z))
+        window_specs = generate_window_spec_list(specs)
+        spark_df = generate_sum_feature(spark_df, feature, window_specs)
+        spark_df = generate_count_feature(spark_df, feature, window_specs)
+    return spark_df

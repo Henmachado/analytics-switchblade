@@ -42,12 +42,7 @@ def main() -> None:
         )
     }
 
-    features = list(targets.keys())
-    for feature in features:
-        x, y, z = targets.get(feature)
-        specs = list(product(x, y, z))
-        spark_df = generate_sum_feature(spark_df, feature, specs)
-        spark_df = generate_count_feature(spark_df, feature, specs)
+    spark_df = generate_features(spark_df, targets)
 
     return spark_df.show()
 
