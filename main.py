@@ -27,22 +27,22 @@ def main() -> None:
         ('Harden', "Nets", 19, 12, datetime.datetime.strptime('2021-01-03', "%Y-%m-%d").date())
     ]
 
-    spark_df = spark.createDataFrame(data=data, schema=schema)
+    df = spark.createDataFrame(data=data, schema=schema)
 
-    targets = {
+    features = {
         "player_points": (
             ["team_name", "player_name"],
-            [24, 48, 72],
+            [24, 48],
             ["date"]
         ),
         "player_assists": (
-            ["team_name", "player_name"],
+            ["team_name"],
             [24],
             ["date"]
         )
     }
 
-    spark_df = generate_features(spark_df, targets)
+    spark_df = generate_features(spark_df=df, features=features)
 
     return spark_df.show()
 
